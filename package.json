@@ -1,6 +1,6 @@
 {
 	"name": "alert-server",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"description": "A web server that sends alerts to our Matrix room.",
 	"main": "index.js",
 	"type": "module",
