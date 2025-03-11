@@ -1,7 +1,7 @@
 {
 	"name": "alert-server",
 	"version": "1.0.0",
-	"description": "A web server that sends alerts to our Matrix room.",
+	"description": "A web server that sends alerts to our logging inbox.",
 	"main": "index.js",
 	"type": "module",
 	"scripts": {
@@ -17,11 +17,12 @@
 		"@nhcarrigan/eslint-config": "5.1.0",
 		"@nhcarrigan/typescript-config": "4.0.0",
 		"@types/node": "22.13.1",
+		"@types/nodemailer": "6.4.17",
 		"eslint": "9.20.0",
 		"typescript": "5.7.3"
 	},
 	"dependencies": {
 		"fastify": "5.2.1",
-		"matrix-js-sdk": "36.1.0"
+		"nodemailer": "6.10.0"
 	}
 }

@@ -5,8 +5,8 @@
  */
 
 import fastify from "fastify";
-import { MsgType, type MatrixClient } from "matrix-js-sdk";
 import { auth } from "../modules/auth.js";
+import { sendMail } from "../modules/sendMail.js";
 import { errorSchema } from "../schemas/errorSchema.js";
 import { logSchema } from "../schemas/logSchema.js";
 import { uptimeSchema } from "../schemas/uptimeSchema.js";
@@ -20,14 +20,14 @@ const html = `<!DOCTYPE html>
     <title>Rosalia Nightsong</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="A basic web server and Matrix bot that allows us to pipe logs and errors from our applications into a Matrix room." />
+    <meta name="description" content="A basic web server that allows us to pipe logs and errors from our applications into our inbox." />
     <script src="https://cdn.nhcarrigan.com/headers/index.js" async defer></script>
   </head>
   <body>
     <main>
     <h1>Rosalia Nightsong</h1>
     <section>
-      <p>A basic web server and Matrix bot that allows us to pipe logs and errors from our applications into a Matrix room.</p>
+      <p>A basic web server that allows us to pipe logs and errors from our applications into our inbox.</p>
     </section>
     <section>
         <h2>Links</h2>
@@ -53,10 +53,9 @@ const html = `<!DOCTYPE html>
 
 /**
  * Starts up the server to receive events.
- * @param client - The authenticated Matrix client.
  */
 // eslint-disable-next-line max-lines-per-function -- This function is long because it is setting up a server.
-export const instantiateServer = (client: MatrixClient): void => {
+export const instantiateServer = (): void => {
   try {
     const server = fastify({
       logger: false,
@@ -74,13 +73,7 @@ export const instantiateServer = (client: MatrixClient): void => {
         return;
       }
       const { application, level, message } = request.body;
-      await client.sendMessage(process.env.MATRIX_ROOM_ID ?? "", {
-        body:           `**${application}** - *${level}*\n${message}`,
-        format:         "org.matrix.custom.html",
-        // eslint-disable-next-line @typescript-eslint/naming-convention -- Requirement of the SDK.
-        formatted_body: `<strong>${application}</strong> - <em>${level}</em><br>${message}`,
-        msgtype:        MsgType.Text,
-      });
+      await sendMail(`[${level}]: ${application}`, message);
       await response.status(200).send({ success: true });
     });
 
@@ -94,13 +87,7 @@ export const instantiateServer = (client: MatrixClient): void => {
           return;
         }
         const { application, context, stack, message } = request.body;
-        await client.sendMessage(process.env.MATRIX_ROOM_ID ?? "", {
-          body:           `**${application}** - *Error in ${context}*\n${message}\n\`\`\`\n${stack}\n\`\`\``,
-          format:         "org.matrix.custom.html",
-          // eslint-disable-next-line @typescript-eslint/naming-convention -- Requirement of the SDK.
-          formatted_body: `<strong>${application}</strong> - <em>Error in ${context}</em><br>${message}<br><code>${stack}</code>`,
-          msgtype:        MsgType.Text,
-        });
+        await sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${stack}`);
         await response.status(200).send({ success: true });
       },
     );
@@ -115,13 +102,7 @@ export const instantiateServer = (client: MatrixClient): void => {
           return;
         }
         const { application, message } = request.body;
-        await client.sendMessage(process.env.MATRIX_ROOM_ID ?? "", {
-          body:           `${message}\n${application}`,
-          format:         "org.matrix.custom.html",
-          // eslint-disable-next-line @typescript-eslint/naming-convention -- Requirement of the SDK.
-          formatted_body: `${message}<br><sub>${application}</sub>`,
-          msgtype:        MsgType.Text,
-        });
+        await sendMail(`[UPTIME]: ${application}`, message);
         await response.status(200).send({ success: true });
       },
     );
@@ -131,36 +112,18 @@ export const instantiateServer = (client: MatrixClient): void => {
       if (error) {
         const { message, stack } = error;
         const context = "Server Startup";
-        void client.sendMessage(process.env.MATRIX_ROOM_ID ?? "", {
-          body:           `**${application}** - *Error in ${context}*\n${message}\n\`\`\`\n${stack ?? "No stack trace available."}\n\`\`\``,
-          format:         "org.matrix.custom.html",
-          // eslint-disable-next-line @typescript-eslint/naming-convention -- Requirement of the SDK.
-          formatted_body: `<strong>${application}</strong> - <em>Error in ${context}</em><br>${message}<br><code>${stack ?? "No stack trace available."}</code>`,
-          msgtype:        MsgType.Text,
-        });
+        void sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${String(stack)}`);
         return;
       }
       const level = "debug";
       const message = `Server listening on port 5003.`;
-      void client.sendMessage(process.env.MATRIX_ROOM_ID ?? "", {
-        body:           `**${application}** - *${level}*\n${message}`,
-        format:         "org.matrix.custom.html",
-        // eslint-disable-next-line @typescript-eslint/naming-convention -- Requirement of the SDK.
-        formatted_body: `<strong>${application}</strong> - <em>${level}</em><br>${message}`,
-        msgtype:        MsgType.Text,
-      });
+      void sendMail(`[${level}]: ${application}`, message);
     });
   } catch (error) {
     const application = "Alert Server";
     const context = "Server Startup";
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Totally being lazy.
     const { message, stack } = error as Error;
-    void client.sendMessage(process.env.MATRIX_ROOM_ID ?? "", {
-      body:           `**${application}** - *Error in ${context}*\n${message}\n\`\`\`\n${stack}\n\`\`\``,
-      format:         "org.matrix.custom.html",
-      // eslint-disable-next-line @typescript-eslint/naming-convention -- Requirement of the SDK.
-      formatted_body: `<strong>${application}</strong> - <em>Error in ${context}</em><br>${message}<br><code>${stack}</code>`,
-      msgtype:        MsgType.Text,
-    });
+    void sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${stack}`);
   }
 };
