@@ -26,6 +26,7 @@ const html = `<!DOCTYPE html>
   <body>
     <main>
     <h1>Rosalia Nightsong</h1>
+    <img src="https://cdn.nhcarrigan.com/new-avatars/rosalia-full.png" width="250" alt="Rosalia" />
     <section>
       <p>A basic web server that allows us to pipe logs and errors from our applications into our inbox.</p>
     </section>
