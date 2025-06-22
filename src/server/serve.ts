@@ -6,6 +6,7 @@
 
 import fastify from "fastify";
 import { auth } from "../modules/auth.js";
+import { sendDiscord } from "../modules/discord.js";
 import { sendMail } from "../modules/sendMail.js";
 import { errorSchema } from "../schemas/errorSchema.js";
 import { logSchema } from "../schemas/logSchema.js";
@@ -89,6 +90,10 @@ export const instantiateServer = (): void => {
         }
         const { application, context, stack, message } = request.body;
         await sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${stack}`);
+        await sendDiscord(
+          `[ERROR]: ${context} - ${application}`,
+          `${message}\n\n\`\`\`\n${stack}\n\`\`\``,
+        );
         await response.status(200).send({ success: true });
       },
     );
