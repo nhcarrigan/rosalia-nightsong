@@ -110,6 +110,7 @@ export const instantiateServer = (): void => {
         }
         const { application, message } = request.body;
         await sendMail(`[UPTIME]: ${application}`, message);
+        await sendDiscord(`[UPTIME]: ${application}`, message);
         await response.status(200).send({ success: true });
       },
     );
@@ -120,11 +121,13 @@ export const instantiateServer = (): void => {
         const { message, stack } = error;
         const context = "Server Startup";
         void sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${String(stack)}`);
+        void sendDiscord(`[ERROR]: ${context} - ${application}`, `${message}\n\n\`\`\`\n${String(stack)}\n\`\`\``);
         return;
       }
       const level = "debug";
       const message = `Server listening on port 5003.`;
       void sendMail(`[${level}]: ${application}`, message);
+      void sendDiscord(`[${level}]: ${application}`, message);
     });
   } catch (error) {
     const application = "Alert Server";
@@ -132,5 +135,6 @@ export const instantiateServer = (): void => {
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Totally being lazy.
     const { message, stack } = error as Error;
     void sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${stack}`);
+    void sendDiscord(`[ERROR]: ${context} - ${application}`, `${message}\n\n\`\`\`\n${stack}\n\`\`\``);
   }
 };
