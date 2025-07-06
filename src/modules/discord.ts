@@ -13,7 +13,7 @@ export const sendDiscord = async(
   subject: string,
   body: string,
 ): Promise<void> => {
-  await fetch(`${process.env.DISCORD_WEBHOOK_URL ?? ""}?with_components=true`, {
+  await fetch(`https://discord.com/api/v10/channels/1355232348840394785/messages`, {
     body: JSON.stringify({
       components: [
         {
@@ -42,7 +42,9 @@ export const sendDiscord = async(
     }),
     headers: {
       // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match Discord's structure.
-      "Content-Type": "application/json",
+      "Authorization": `Bot ${process.env.DISCORD_TOKEN ?? ""}`,
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match Discord's structure.
+      "Content-Type":  "application/json",
     },
     method: "POST",
   });
