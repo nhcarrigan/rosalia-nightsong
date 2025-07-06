@@ -6,4 +6,4 @@
 
 import { instantiateServer } from "./server/serve.js";
 
-instantiateServer();
+await instantiateServer();
