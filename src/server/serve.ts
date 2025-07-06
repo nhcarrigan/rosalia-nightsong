@@ -5,12 +5,15 @@
  */
 
 import fastify from "fastify";
+import { applicationData } from "../config/applicationData.js";
 import { auth } from "../modules/auth.js";
 import { sendDiscord } from "../modules/discord.js";
 import { sendMail } from "../modules/sendMail.js";
+import { validateWebhook } from "../modules/validateWebhook.js";
 import { errorSchema } from "../schemas/errorSchema.js";
 import { logSchema } from "../schemas/logSchema.js";
 import { uptimeSchema } from "../schemas/uptimeSchema.js";
+import type { Entitlement } from "../interfaces/entitlement.js";
 import type { Error } from "../interfaces/error.js";
 import type { Log } from "../interfaces/log.js";
 import type { Uptime } from "../interfaces/uptime.js";
@@ -90,7 +93,10 @@ export const instantiateServer = (): void => {
           return;
         }
         const { application, context, stack, message } = request.body;
-        await sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${stack}`);
+        await sendMail(
+          `[ERROR]: ${context} - ${application}`,
+          `${message}\n\n${stack}`,
+        );
         await sendDiscord(
           `[ERROR]: ${context} - ${application}`,
           `${message}\n\n\`\`\`\n${stack}\n\`\`\``,
@@ -115,13 +121,72 @@ export const instantiateServer = (): void => {
       },
     );
 
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- Body must be capitalised for Fastify.
+    server.post<{ Body: Entitlement; Headers: {
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- Header must be formatted for Fastify.
+      "x-signature-ed25519":   string;
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Header must be formatted for Fastify.
+      "x-signature-timestamp": string;
+    }; }>(
+      "/entitlement",
+      // eslint-disable-next-line complexity -- Fuck off.
+      async(request, response) => {
+        const { type, application_id: applicationId, event } = request.body;
+        const appInfo = applicationData[applicationId];
+        const isValid = await validateWebhook(request);
+        if (!isValid) {
+          await response.status(401).send({ success: false });
+          void sendDiscord(
+            `[ENTITLEMENT]: ${appInfo?.name ?? applicationId}`,
+            "An invalid webhook signature was received.",
+          );
+          void sendMail(
+            `[ENTITLEMENT]: ${appInfo?.name ?? applicationId}`,
+            "An invalid webhook signature was received.",
+          );
+          return;
+        }
+        await response.status(204).send();
+        if (type === 0) {
+          void sendDiscord(
+            `[ENTITLEMENT]: ${appInfo?.name ?? applicationId}`,
+            "Received a ping from Discord.",
+          );
+          void sendMail(
+            `[ENTITLEMENT]: ${appInfo?.name ?? applicationId}`,
+            "Received a ping from Discord.",
+          );
+          return;
+        }
+        const {
+          user_id: userId,
+          guild_id: guildId,
+          ends_at: endsAt,
+        } = event.data;
+        await sendDiscord(
+          `[ENTITLEMENT]: ${appInfo?.name ?? applicationId}`,
+          `Entitlement purchased!\n- **User ID**: ${userId}\n- **Guild ID**: ${guildId}\n- **Ends At**: ${endsAt}`,
+        );
+        await sendMail(
+          `[ENTITLEMENT]: ${appInfo?.name ?? applicationId}`,
+          `Entitlement purchased!\n- **User ID**: ${userId}\n- **Guild ID**: ${guildId}\n- **Ends At**: ${endsAt}`,
+        );
+      },
+    );
+
     server.listen({ port: 5003 }, (error) => {
       const application = "Alert Server";
       if (error) {
         const { message, stack } = error;
         const context = "Server Startup";
-        void sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${String(stack)}`);
-        void sendDiscord(`[ERROR]: ${context} - ${application}`, `${message}\n\n\`\`\`\n${String(stack)}\n\`\`\``);
+        void sendMail(
+          `[ERROR]: ${context} - ${application}`,
+          `${message}\n\n${String(stack)}`,
+        );
+        void sendDiscord(
+          `[ERROR]: ${context} - ${application}`,
+          `${message}\n\n\`\`\`\n${String(stack)}\n\`\`\``,
+        );
         return;
       }
       const level = "debug";
@@ -134,7 +199,13 @@ export const instantiateServer = (): void => {
     const context = "Server Startup";
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Totally being lazy.
     const { message, stack } = error as Error;
-    void sendMail(`[ERROR]: ${context} - ${application}`, `${message}\n\n${stack}`);
-    void sendDiscord(`[ERROR]: ${context} - ${application}`, `${message}\n\n\`\`\`\n${stack}\n\`\`\``);
+    void sendMail(
+      `[ERROR]: ${context} - ${application}`,
+      `${message}\n\n${stack}`,
+    );
+    void sendDiscord(
+      `[ERROR]: ${context} - ${application}`,
+      `${message}\n\n\`\`\`\n${stack}\n\`\`\``,
+    );
   }
 };

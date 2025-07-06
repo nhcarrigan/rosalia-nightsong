@@ -17,6 +17,7 @@ export const sendDiscord = async(
     body: JSON.stringify({
       components: [
         {
+          // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match Discord's structure.
           accent_color: 15_418_782,
           components:   [
             {
@@ -40,6 +41,7 @@ export const sendDiscord = async(
       flags: 32_768,
     }),
     headers: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match Discord's structure.
       "Content-Type": "application/json",
     },
     method: "POST",
