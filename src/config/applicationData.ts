@@ -113,4 +113,8 @@ export const applicationData: Record<string, { name: string; key: string }> = {
     key:  "49481ddc3269953d9a49e48bbf5e2ec35334004ec2a75a45cb448be80cd02f41",
     name: "Pavelle",
   },
+  "1406431359345496255": {
+    key:  "5f87a4406cc09cadc38ad9d7f4a1a6d3db0fa2941f05064a5c8d05f3015fdd3f",
+    name: "Amari",
+  },
 };
