@@ -85,7 +85,6 @@ export const instantiateServer = async(): Promise<void> => {
           return;
         }
         const { application, level, message } = request.body;
-        await sendMail(`[${level}]: ${application}`, message);
         await sendDiscord(`[${level}]: ${application}`, message);
         await response.status(200).send({ success: true });
       } catch (error) {
