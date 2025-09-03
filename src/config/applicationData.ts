@@ -129,4 +129,8 @@ export const applicationData: Record<string, { name: string; key: string }> = {
     key:  "6ca3a85713dba0f9a32eb03f9682ead8e0a5ba9431d105119fd5d4e2776aeb17",
     name: "Elunara",
   },
+  "1412945347134881862": {
+    key:  "3cee9e358fb0ba1c1e974248395e3cbda936e3ea499c68f8a86a95e07e013aca",
+    name: "Umbrelle",
+  },
 };
