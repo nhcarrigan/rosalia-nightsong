@@ -331,7 +331,7 @@ export const instantiateServer = async(): Promise<void> => {
 
     server.listen({ port: 5003 }, (error) => {
       // eslint-disable-next-line max-lines -- This block is long because of logging.
-      const application = "Alert Server";
+      const application = "Rosalia Nightsong";
       if (error) {
         const { message, stack } = error;
         const context = "Server Startup";
@@ -348,7 +348,7 @@ export const instantiateServer = async(): Promise<void> => {
       void pipeLog(application, message, level);
     });
   } catch (error) {
-    const application = "Alert Server";
+    const application = "Rosalia Nightsong";
     const context = "Server Startup";
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- Totally being lazy.
     const { message, stack } = error as Error;

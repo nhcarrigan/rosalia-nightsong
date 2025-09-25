@@ -4,7 +4,7 @@
  * @author Naomi Carrigan
  */
 
-import { sendDiscord } from "../modules/discord.js";
+import { pipeLog } from "../modules/pipeLog.js";
 import { sendMail } from "../modules/sendMail.js";
 
 /**
@@ -17,9 +17,10 @@ export const errorHandler = async(
   context: string,
 ): Promise<void> => {
   if (error instanceof Error) {
-    await sendDiscord(
+    await pipeLog(
+      "Rosalia Nightsong",
       `[ERROR] ${context}: ${error.message}`,
-      JSON.stringify(error, null, 2),
+      "error",
     );
     await sendMail(
       `[ERROR] ${context}: ${error.message}`,
@@ -27,6 +28,10 @@ export const errorHandler = async(
     );
     return;
   }
-  await sendDiscord(`[ERROR] ${context}`, JSON.stringify(error, null, 2));
+  await pipeLog(
+    "Rosalia Nightsong",
+    `[ERROR] ${context}: ${JSON.stringify(error)}`,
+    "error",
+  );
   await sendMail(`[ERROR] ${context}`, JSON.stringify(error, null, 2));
 };
