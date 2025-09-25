@@ -17,6 +17,9 @@ export const auth = (request: FastifyRequest): boolean => {
     return false;
   }
   const token = request.headers.authorization;
+  if (token === "" || process.env.API_AUTH === undefined) {
+    return false;
+  }
   if (token !== process.env.API_AUTH) {
     return false;
   }

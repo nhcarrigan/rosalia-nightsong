@@ -6,7 +6,7 @@
 import { webcrypto } from "node:crypto";
 import { verify } from "discord-verify/node";
 import { applicationData } from "../config/applicationData.js";
-import { sendDiscord } from "./discord.js";
+import { pipeLog } from "./pipeLog.js";
 import type { Entitlement } from "../interfaces/entitlement.js";
 import type { FastifyRequest } from "fastify";
 
@@ -27,7 +27,11 @@ export const validateWebhook = async(
   const { application_id: applicationId } = request.body;
   const appData = applicationData[applicationId];
   if (appData === undefined) {
-    void sendDiscord(`[NOTIFICATION]: Invalid Application ID`, `Received an entitlement event for an invalid application ID: ${applicationId}`);
+    await pipeLog(
+      "Alert Server",
+      `Received an entitlement event for an invalid application ID: ${applicationId}`,
+      "warn",
+    );
     return false;
   }
   const signature = request.headers["x-signature-ed25519"];
@@ -41,9 +45,10 @@ export const validateWebhook = async(
     webcrypto.subtle,
   );
   if (!isValid) {
-    void sendDiscord(
-      `[NOTIFICATION]: Invalid Webhook Signature`,
-      `Received an entitlement event with an invalid signature.\nApplication ID: ${applicationId}\nSignature: ${signature}\nTimestamp: ${timestamp}\nRaw Body: ${rawBody}`,
+    await pipeLog(
+      "Alert Server",
+      `Received an entitlement event with an invalid signature for application ${appData.name} (${applicationId}).`,
+      "warn",
     );
   }
   return isValid;
