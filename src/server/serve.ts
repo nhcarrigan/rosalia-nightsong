@@ -10,7 +10,7 @@ import rawBody from "fastify-raw-body";
 import StripeApp from "stripe";
 import { applicationData } from "../config/applicationData.js";
 import { auth } from "../modules/auth.js";
-import { pipeLog } from "../modules/pipeLog.js";
+import { pipeError, pipeLog } from "../modules/pipeLog.js";
 import { sendMail } from "../modules/sendMail.js";
 import { validateWebhook } from "../modules/validateWebhook.js";
 import { errorSchema } from "../schemas/errorSchema.js";
@@ -108,7 +108,7 @@ export const instantiateServer = async(): Promise<void> => {
             `[ERROR]: ${context} - ${application}`,
             `${message}\n\n${stack}`,
           );
-          await pipeLog(
+          await pipeError(
             application,
             `${context} - ${message}\n${stack}`,
             "error",
