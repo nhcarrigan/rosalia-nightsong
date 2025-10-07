@@ -87,26 +87,36 @@ export const instantiateServer = async(): Promise<void> => {
           return;
         }
         const { application, name, value, metadata } = request.body;
-        await fetch(`https://telemetry.nhcarrigan.com/api/33kzMoHcYaaEyqCFsauKPhTvEtx/ingest/metrics/_json`, {
-          body: JSON.stringify([ {
-            // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match API's structure.
-            __name__:  "metrics",
-            // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match API's structure.
-            __type__:  "count",
-            app:       application,
-            metadata:  metadata ?? {},
-            name:      name,
-            timestamp: Date.now(),
-            value:     value,
-          } ]),
-          headers: {
-            // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
-            "Authorization": `Basic ${process.env.TELEMETRY_TOKEN ?? ""}`,
-            // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
-            "Content-Type":  "application/json",
+        await fetch(
+          `https://telemetry.nhcarrigan.com/api/33kzMoHcYaaEyqCFsauKPhTvEtx/ingest/metrics/_json`,
+          {
+            body: JSON.stringify([
+              {
+                // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match API's structure.
+                __name__: "metrics",
+                // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match API's structure.
+                __type__: "count",
+                app:      application,
+                date:     new Date().toLocaleDateString("en-GB", {
+                  day:   "numeric",
+                  month: "long",
+                  year:  "numeric",
+                }),
+                metadata:  metadata ?? {},
+                name:      name,
+                timestamp: Date.now(),
+                value:     value,
+              },
+            ]),
+            headers: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
+              "Authorization": `Basic ${process.env.TELEMETRY_TOKEN ?? ""}`,
+              // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
+              "Content-Type":  "application/json",
+            },
+            method: "POST",
           },
-          method: "POST",
-        });
+        );
       } catch (error) {
         await errorHandler(error, "Metric Webhook");
         await response.status(500).send({ success: false });
