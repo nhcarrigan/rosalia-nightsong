@@ -3,6 +3,7 @@
  * @license Naomi's Public License
  * @author Naomi Carrigan
  */
+/* eslint-disable max-lines -- this is kinda the main file. */
 
 import fastify from "fastify";
 import rawBody from "fastify-raw-body";
@@ -20,6 +21,7 @@ import { errorHandler } from "../utils/errorHandler.js";
 import type { Entitlement } from "../interfaces/entitlement.js";
 import type { Error } from "../interfaces/error.js";
 import type { Log } from "../interfaces/log.js";
+import type { Metric } from "../interfaces/metric.js";
 import type { Uptime } from "../interfaces/uptime.js";
 
 const stripe = new StripeApp(process.env.STRIPE_SECRET_KEY ?? "");
@@ -75,6 +77,40 @@ export const instantiateServer = async(): Promise<void> => {
     server.get("/", (_request, response) => {
       response.header("Content-Type", "text/html");
       response.send(html);
+    });
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- Body must be capitalised for Fastify.
+    server.post<{ Body: Metric }>("/metric", async(request, response) => {
+      try {
+        if (!auth(request)) {
+          await response.status(401).send({ success: false });
+          return;
+        }
+        const { application, name, value, metadata } = request.body;
+        await fetch(`https://telemetry.nhcarrigan.com/api/33kzMoHcYaaEyqCFsauKPhTvEtx/ingest/metrics/_json`, {
+          body: JSON.stringify([ {
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match API's structure.
+            __name__:  "metrics",
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- Needs to match API's structure.
+            __type__:  "count",
+            app:       application,
+            metadata:  metadata ?? {},
+            name:      name,
+            timestamp: Date.now(),
+            value:     value,
+          } ]),
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
+            "Authorization": `Basic ${process.env.TELEMETRY_TOKEN ?? ""}`,
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
+            "Content-Type":  "application/json",
+          },
+          method: "POST",
+        });
+      } catch (error) {
+        await errorHandler(error, "Metric Webhook");
+        await response.status(500).send({ success: false });
+      }
     });
 
     // eslint-disable-next-line @typescript-eslint/naming-convention -- Body must be capitalised for Fastify.
@@ -330,7 +366,6 @@ export const instantiateServer = async(): Promise<void> => {
     });
 
     server.listen({ port: 5003 }, (error) => {
-      // eslint-disable-next-line max-lines -- This block is long because of logging.
       const application = "Rosalia Nightsong";
       if (error) {
         const { message, stack } = error;

@@ -4,13 +4,6 @@
  * @author Naomi Carrigan
  */
 
-const priority: Record<string, number> = {
-  debug: 0,
-  error: 3,
-  info:  1,
-  warn:  2,
-};
-
 /**
  * Pipes a log message to the Gotify server.
  * @param appName - The name of the application.
@@ -26,15 +19,17 @@ const pipeLog = async(
   if (logToken === undefined) {
     return;
   }
-  await fetch(`https://logs.nhcarrigan.com/message?token=${logToken}`, {
+  await fetch(`https://telemetry.nhcarrigan.com/api/33kzMoHcYaaEyqCFsauKPhTvEtx/default/_json`, {
     body: JSON.stringify({
-      message:  message,
-      priority: priority[level] ?? priority.debug,
-      title:    appName,
+      job:   appName,
+      level: level,
+      log:   message,
     }),
     headers: {
       // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
-      "Content-Type": "application/json",
+      "Authorization": `Basic ${process.env.TELEMETRY_TOKEN ?? ""}`,
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
+      "Content-Type":  "application/json",
     },
     method: "POST",
   });
@@ -56,15 +51,17 @@ const pipeError = async(
   if (logToken === undefined) {
     return;
   }
-  await fetch(`https://logs.nhcarrigan.com/message?token=${logToken}`, {
+  await fetch(`https://telemetry.nhcarrigan.com/api/33kzMoHcYaaEyqCFsauKPhTvEtx/default/_json`, {
     body: JSON.stringify({
-      message:  message,
-      priority: priority[level] ?? priority.debug,
-      title:    appName,
+      job:   appName,
+      level: level,
+      log:   message,
     }),
     headers: {
       // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
-      "Content-Type": "application/json",
+      "Authorization": `Basic ${process.env.TELEMETRY_TOKEN ?? ""}`,
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
+      "Content-Type":  "application/json",
     },
     method: "POST",
   });
