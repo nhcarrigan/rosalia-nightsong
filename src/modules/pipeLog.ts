@@ -41,7 +41,8 @@ const pipeLog = async(
 };
 
 /**
- * Pipes a log message to the Gotify server.
+ * Pipes a log message to the Gotify server. Also notifies
+ * Naomi in Discord.
  * @param appName - The name of the application.
  * @param message - The message to log.
  * @param level - The level of the log, used for priority.
@@ -64,6 +65,18 @@ const pipeError = async(
     headers: {
       // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
       "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+  await fetch(`https://discord.com/api/v10/channels/1385797320389431336/messages`, {
+    body: JSON.stringify({
+      content: `:warning: **${appName}** has encountered an error. <@465650873650118659> please check the logs.`,
+    }),
+    headers: {
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
+      "Authorization": `Bot ${process.env.DISCORD_TOKEN ?? ""}`,
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- Standard header.
+      "Content-Type":  "application/json",
     },
     method: "POST",
   });
