@@ -1,0 +1,71 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  trivy-scan:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Combined scan for vulnerabilities, secrets, and IaC misconfigurations
+      - name: Run Trivy comprehensive security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          scanners: 'vuln,secret,config'
+          format: 'table'
+          output: 'trivy-results.txt'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          # Fail on any vulnerability found
+          exit-code: '1'
+          # Don't ignore unfixed vulnerabilities
+          ignore-unfixed: false
+          # Skip database update to speed up scans (uses cached DB)
+          skip-db-update: false
+
+      # Display results for visibility
+      - name: Display Trivy scan results
+        if: always()
+        run: |
+          if [ -f trivy-results.txt ]; then
+            echo "=== Trivy Security Scan Results ==="
+            cat trivy-results.txt
+          fi
+
+      # Static code analysis with Semgrep
+      - name: Run Semgrep static analysis
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/owasp-top-ten
+            p/ci
+            p/security
+          generateSarif: '1'
+          outputFormat: 'text'
+          outputFile: 'semgrep-results.txt'
+          # Fail on any finding
+          error: 'true'
+
+      # Display Semgrep results
+      - name: Display Semgrep scan results
+        if: always()
+        run: |
+          if [ -f semgrep-results.txt ]; then
+            echo "=== Semgrep Static Analysis Results ==="
+            cat semgrep-results.txt
+          fi
+
