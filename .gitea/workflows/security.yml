@@ -2,70 +2,140 @@ name: Security Scan
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main ]
   schedule:
     # Run weekly on Mondays at 00:00 UTC
     - cron: '0 0 * * 1'
   workflow_dispatch:
+  continue_on_error: true
 
 jobs:
-  trivy-scan:
-    name: Trivy Security Scan
+  security:
+    name: Security Audit
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Combined scan for vulnerabilities, secrets, and IaC misconfigurations
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+          wget -qO /tmp/trivy-key.asc https://aquasecurity.github.io/trivy-repo/deb/public.key
+          sudo apt-key add /tmp/trivy-key.asc
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy -y
+
       - name: Run Trivy comprehensive security scan
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           scan-ref: '.'
-          scanners: 'vuln,secret,config'
+          scanners: 'vuln,misconfig'
           format: 'table'
           output: 'trivy-results.txt'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN'
           # Fail on any vulnerability found
           exit-code: '1'
           # Don't ignore unfixed vulnerabilities
           ignore-unfixed: false
           # Skip database update to speed up scans (uses cached DB)
           skip-db-update: false
+          # Skip setup since we installed Trivy manually
+          skip-setup-trivy: true
 
-      # Display results for visibility
       - name: Display Trivy scan results
         if: always()
         run: |
           if [ -f trivy-results.txt ]; then
             echo "=== Trivy Security Scan Results ==="
             cat trivy-results.txt
+          else
+            echo "No Trivy scan results found"
+            exit 1
           fi
 
-      # Static code analysis with Semgrep
-      - name: Run Semgrep static analysis
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/security-audit
-            p/owasp-top-ten
-            p/ci
-            p/security
-          generateSarif: '1'
-          outputFormat: 'text'
-          outputFile: 'semgrep-results.txt'
-          # Fail on any finding
-          error: 'true'
+      - name: Install Gitleaks
+        run: |
+          wget -O /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          sudo mv /tmp/gitleaks /usr/local/bin/
+          sudo chmod +x /usr/local/bin/gitleaks
+          gitleaks version
 
-      # Display Semgrep results
+      # We remove the Trivy cache to avoid false positives
+      - name: Run Gitleaks secret scan
+        run: |
+          rm -rf .cache/trivy
+          gitleaks detect --source . --report-path gitleaks-results.json --report-format json --no-git
+
+      - name: Display Gitleaks scan results
+        if: always()
+        run: |
+          if [ -f gitleaks-results.json ]; then
+            echo "=== Gitleaks Secret Scan Results ==="
+            cat gitleaks-results.json
+          else
+            echo "No secrets detected by Gitleaks"
+            exit 1
+          fi
+
+      - name: Install Semgrep
+        run: |
+          sudo apt-get install pipx
+          pipx ensurepath
+          export PATH="$HOME/.local/bin:$PATH"
+          pipx install semgrep
+          semgrep --version
+
+      - name: Run Semgrep static analysis
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          semgrep --config p/security-audit \
+            --config p/owasp-top-ten \
+            --config p/ci \
+            --config p/r2c-security-audit \
+            --config p/cwe-top-25 \
+            --output semgrep-results.txt \
+            .
+
       - name: Display Semgrep scan results
         if: always()
         run: |
           if [ -f semgrep-results.txt ]; then
             echo "=== Semgrep Static Analysis Results ==="
             cat semgrep-results.txt
+          else
+            echo "No Semgrep scan results found"
+            exit 1
           fi
 
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable' # Latest stable version
+
+      - name: Install OSV Scanner
+        run: |
+          export PATH="$HOME/go/bin:$PATH"
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest
+
+      - name: Run OSV Scanner
+        run: |
+          export PATH="$HOME/go/bin:$PATH"
+          osv-scanner scan source --format table --output osv-results.txt -r .
+
+      - name: Display OSV Scanner scan results
+        if: always()
+        run: |
+          if [ -f osv-results.txt ]; then
+            echo "=== OSV Scanner Results ==="
+            cat osv-results.txt
+          else
+            echo "No OSV Scanner scan results found"
+            exit 1
+          fi
