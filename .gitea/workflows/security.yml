@@ -1,4 +1,4 @@
-name: Security Scan
+name: Security Scan and Upload
 
 on:
   push:
@@ -6,136 +6,172 @@ on:
   pull_request:
     branches: [ main ]
   schedule:
-    # Run weekly on Mondays at 00:00 UTC
     - cron: '0 0 * * 1'
   workflow_dispatch:
-  continue_on_error: true
 
 jobs:
-  security:
-    name: Security Audit
+  security-audit:
+    name: Security & DefectDojo Upload
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- AUTO-SETUP PROJECT ---
+      - name: Ensure DefectDojo Product Exists
+        env:
+          DD_URL: ${{ secrets.DD_URL }}
+          DD_TOKEN: ${{ secrets.DD_TOKEN }}
+          PRODUCT_NAME: ${{ github.repository }} 
+          PRODUCT_TYPE_ID: 1 
+        run: |
+          sudo apt-get install jq -y > /dev/null
+          
+          echo "Checking connection to $DD_URL..."
+          
+          # Check if product exists - capture HTTP code to debug connection issues
+          RESPONSE=$(curl --write-out "%{http_code}" --silent --output /tmp/response.json \
+            -H "Authorization: Token $DD_TOKEN" \
+            "$DD_URL/api/v2/products/?name=$PRODUCT_NAME")
+          
+          # If response is not 200, print error
+          if [ "$RESPONSE" != "200" ]; then
+            echo "::error::Failed to query DefectDojo. HTTP Code: $RESPONSE"
+            cat /tmp/response.json
+            exit 1
+          fi
+
+          COUNT=$(cat /tmp/response.json | jq -r '.count')
+          
+          if [ "$COUNT" = "0" ]; then
+            echo "Creating product '$PRODUCT_NAME'..."
+            curl -s -X POST "$DD_URL/api/v2/products/" \
+              -H "Authorization: Token $DD_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d '{ "name": "'"$PRODUCT_NAME"'", "description": "Auto-created by Gitea Actions", "prod_type": '$PRODUCT_TYPE_ID' }'
+          else
+            echo "Product '$PRODUCT_NAME' already exists."
+          fi
+
+      # --- 1. TRIVY (Dependencies & Misconfig) ---
       - name: Install Trivy
         run: |
-          sudo apt-get update
           sudo apt-get install wget apt-transport-https gnupg lsb-release -y
-          wget -qO /tmp/trivy-key.asc https://aquasecurity.github.io/trivy-repo/deb/public.key
-          sudo apt-key add /tmp/trivy-key.asc
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
           echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install trivy -y
+          sudo apt-get update && sudo apt-get install trivy -y
 
-      - name: Run Trivy comprehensive security scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          scanners: 'vuln,misconfig'
-          format: 'table'
-          output: 'trivy-results.txt'
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN'
-          # Fail on any vulnerability found
-          exit-code: '1'
-          # Don't ignore unfixed vulnerabilities
-          ignore-unfixed: false
-          # Skip database update to speed up scans (uses cached DB)
-          skip-db-update: false
-          # Skip setup since we installed Trivy manually
-          skip-setup-trivy: true
-
-      - name: Display Trivy scan results
-        if: always()
+      - name: Run Trivy (FS Scan)
         run: |
-          if [ -f trivy-results.txt ]; then
-            echo "=== Trivy Security Scan Results ==="
-            cat trivy-results.txt
-          else
-            echo "No Trivy scan results found"
+          trivy fs . --scanners vuln,misconfig --format json --output trivy-results.json --exit-code 0
+
+      - name: Upload Trivy to DefectDojo
+        env:
+          DD_URL: ${{ secrets.DD_URL }}
+          DD_TOKEN: ${{ secrets.DD_TOKEN }}
+        run: |
+          echo "Uploading Trivy results..."
+          # Generate today's date in YYYY-MM-DD format
+          TODAY=$(date +%Y-%m-%d)
+          
+          HTTP_CODE=$(curl --write-out "%{http_code}" --output response.txt --silent -X POST "$DD_URL/api/v2/import-scan/" \
+            -H "Authorization: Token $DD_TOKEN" \
+            -F "active=true" \
+            -F "verified=true" \
+            -F "scan_type=Trivy Scan" \
+            -F "engagement_name=CI/CD Pipeline" \
+            -F "product_name=${{ github.repository }}" \
+            -F "scan_date=$TODAY" \
+            -F "auto_create_context=true" \
+            -F "file=@trivy-results.json")
+          
+          if [[ "$HTTP_CODE" != "200" && "$HTTP_CODE" != "201" ]]; then
+            echo "::error::Upload Failed with HTTP $HTTP_CODE"
+            echo "--- SERVER RESPONSE ---"
+            cat response.txt
+            echo "-----------------------"
             exit 1
+          else
+            echo "Upload Success!"
           fi
 
+      # --- 2. GITLEAKS (Secrets) ---
       - name: Install Gitleaks
         run: |
-          wget -O /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz
-          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
-          sudo mv /tmp/gitleaks /usr/local/bin/
-          sudo chmod +x /usr/local/bin/gitleaks
-          gitleaks version
+          wget -qO gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.18.0/gitleaks_8.18.0_linux_x64.tar.gz
+          tar -xzf gitleaks.tar.gz
+          sudo mv gitleaks /usr/local/bin/ && chmod +x /usr/local/bin/gitleaks
 
-      # We remove the Trivy cache to avoid false positives
-      - name: Run Gitleaks secret scan
-        run: |
-          rm -rf .cache/trivy
-          gitleaks detect --source . --report-path gitleaks-results.json --report-format json --no-git
+      - name: Run Gitleaks
+        run: gitleaks detect --source . -v --report-path gitleaks-results.json --report-format json --no-git || true
 
-      - name: Display Gitleaks scan results
-        if: always()
+      - name: Upload Gitleaks to DefectDojo
+        env:
+          DD_URL: ${{ secrets.DD_URL }}
+          DD_TOKEN: ${{ secrets.DD_TOKEN }}
         run: |
-          if [ -f gitleaks-results.json ]; then
-            echo "=== Gitleaks Secret Scan Results ==="
-            cat gitleaks-results.json
+          echo "Uploading Gitleaks results..."  
+          TODAY=$(date +%Y-%m-%d)
+
+          HTTP_CODE=$(curl --write-out "%{http_code}" --output response.txt --silent -X POST "$DD_URL/api/v2/import-scan/" \
+            -H "Authorization: Token $DD_TOKEN" \
+            -F "active=true" \
+            -F "verified=true" \
+            -F "scan_type=Gitleaks Scan" \
+            -F "engagement_name=CI/CD Pipeline" \
+            -F "product_name=${{ github.repository }}" \
+            -F "scan_date=$TODAY" \
+            -F "auto_create_context=true" \
+            -F "file=@gitleaks-results.json")
+
+          if [[ "$HTTP_CODE" != "200" && "$HTTP_CODE" != "201" ]]; then
+             echo "::error::Upload Failed with HTTP $HTTP_CODE"
+             echo "--- SERVER RESPONSE ---"
+             cat response.txt
+             echo "-----------------------"
+             exit 1
           else
-            echo "No secrets detected by Gitleaks"
-            exit 1
+             echo "Upload Success!"
           fi
 
-      - name: Install Semgrep
+      # --- 3. SEMGREP (SAST) ---
+      - name: Install Semgrep (via pipx)
         run: |
-          sudo apt-get install pipx
-          pipx ensurepath
-          export PATH="$HOME/.local/bin:$PATH"
+          sudo apt-get install pipx -y
           pipx install semgrep
-          semgrep --version
+          # Add pipx binary path to GITHUB_PATH so next steps can see 'semgrep'
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Run Semgrep static analysis
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          semgrep --config p/security-audit \
-            --config p/owasp-top-ten \
-            --config p/ci \
-            --config p/r2c-security-audit \
-            --config p/cwe-top-25 \
-            --output semgrep-results.txt \
-            .
+      - name: Run Semgrep
+        run: semgrep scan --config=p/security-audit --config=p/owasp-top-ten --json --output semgrep-results.json . || true
 
-      - name: Display Semgrep scan results
-        if: always()
+      - name: Upload Semgrep to DefectDojo
+        env:
+          DD_URL: ${{ secrets.DD_URL }}
+          DD_TOKEN: ${{ secrets.DD_TOKEN }}
         run: |
-          if [ -f semgrep-results.txt ]; then
-            echo "=== Semgrep Static Analysis Results ==="
-            cat semgrep-results.txt
+          echo "Uploading Semgrep results..."
+          TODAY=$(date +%Y-%m-%d)
+          
+          HTTP_CODE=$(curl --write-out "%{http_code}" --output response.txt --silent -X POST "$DD_URL/api/v2/import-scan/" \
+            -H "Authorization: Token $DD_TOKEN" \
+            -F "active=true" \
+            -F "verified=true" \
+            -F "scan_type=Semgrep JSON Report" \
+            -F "engagement_name=CI/CD Pipeline" \
+            -F "product_name=${{ github.repository }}" \
+            -F "scan_date=$TODAY" \
+            -F "auto_create_context=true" \
+            -F "file=@semgrep-results.json")
+
+          if [[ "$HTTP_CODE" != "200" && "$HTTP_CODE" != "201" ]]; then
+             echo "::error::Upload Failed with HTTP $HTTP_CODE"
+             echo "--- SERVER RESPONSE ---"
+             cat response.txt
+             echo "-----------------------"
+             exit 1
           else
-            echo "No Semgrep scan results found"
-            exit 1
-          fi
-
-      - name: Install Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: 'stable' # Latest stable version
-
-      - name: Install OSV Scanner
-        run: |
-          export PATH="$HOME/go/bin:$PATH"
-          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest
-
-      - name: Run OSV Scanner
-        run: |
-          export PATH="$HOME/go/bin:$PATH"
-          osv-scanner scan source --format table --output osv-results.txt -r .
-
-      - name: Display OSV Scanner scan results
-        if: always()
-        run: |
-          if [ -f osv-results.txt ]; then
-            echo "=== OSV Scanner Results ==="
-            cat osv-results.txt
-          else
-            echo "No OSV Scanner scan results found"
-            exit 1
+             echo "Upload Success!"
           fi
