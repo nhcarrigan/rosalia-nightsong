@@ -20,8 +20,10 @@ export const sendMail = async(subject: string, body: string): Promise<void> => {
       user: "noreply@nhcarrigan.com",
     },
     host:   "mail.nhcarrigan.com",
-    port:   587,            // UPDATED: Standard port for STARTTLS
-    secure: false,          // UPDATED: false means "Connect then upgrade via STARTTLS"
+    // UPDATED: Standard port for STARTTLS
+    port:   587,
+    // UPDATED: false means "Connect then upgrade via STARTTLS"
+    secure: false,
   };
   const defaults: SMTPTransport["options"] = {
     from: "noreply@nhcarrigan.com",

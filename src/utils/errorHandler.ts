@@ -4,7 +4,7 @@
  * @author Naomi Carrigan
  */
 
-import { pipeLog } from "../modules/pipeLog.js";
+import { pipeError, pipeLog } from "../modules/pipeLog.js";
 import { sendMail } from "../modules/sendMail.js";
 
 /**
@@ -22,6 +22,13 @@ export const errorHandler = async(
       `[ERROR] ${context}: ${error.message}`,
       "error",
     );
+    await pipeError({
+      appName: "Rosalia Nightsong",
+      level:   "error",
+      message: error.message,
+      scope:   context,
+      stack:   error.stack ?? "No stack trace available",
+    });
     await sendMail(
       `[ERROR] ${context}: ${error.message}`,
       JSON.stringify(error, null, 2),
@@ -33,5 +40,12 @@ export const errorHandler = async(
     `[ERROR] ${context}: ${JSON.stringify(error)}`,
     "error",
   );
+  await pipeError({
+    appName: "Rosalia Nightsong",
+    level:   "error",
+    message: JSON.stringify(error),
+    scope:   context,
+    stack:   "No stack trace available (not an Error instance)",
+  });
   await sendMail(`[ERROR] ${context}`, JSON.stringify(error, null, 2));
 };

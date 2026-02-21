@@ -129,6 +129,10 @@ export const applicationData: Record<string, { name: string; key: string }> = {
     key:  "6ca3a85713dba0f9a32eb03f9682ead8e0a5ba9431d105119fd5d4e2776aeb17",
     name: "Elunara",
   },
+  "1411089581058822275": {
+    key:  "c37c74a774458d3c54bdd8fa36ffa193dac974c33cafea836cbac826706fa102",
+    name: "Sakura",
+  },
   "1412945347134881862": {
     key:  "3cee9e358fb0ba1c1e974248395e3cbda936e3ea499c68f8a86a95e07e013aca",
     name: "Umbrelle",
@@ -137,32 +141,28 @@ export const applicationData: Record<string, { name: string; key: string }> = {
     key:  "11809d144851d8506cbfb5a6dc2738a919d0935c383da785d1ff687887a7cd0a",
     name: "Tessara",
   },
-  "1459002793179349023": {
-    key: "90ab6b4be1f73708ef46b4f72141dde0254f68124f9642fabedbbfc4618d07cc",
-    name: "Tesseract"
-  },
-  "1459007370746134691": {
-    key: "8082f0f536a0bea6cdd28fab2f6e8451f927858901025b5b5d77fa39b3aaf6c3",
-    name: "Ephemere"
-  },
-  "884082547183747153": {
-    key: "5a73fdbd5fc5b56dbc8b19f61d94413189c73b6ed6bd4b92311a44ed01f67bb0",
-    name: "Valerium"
-  },
-  "1411089581058822275": {
-    key: "c37c74a774458d3c54bdd8fa36ffa193dac974c33cafea836cbac826706fa102",
-    name: "Sakura"
-  },
   "1433657054433771621": {
-    key: "e650f6e74a6e284d8fa3417325e0bf77783a51875075e0fd8aae1b44bb733097",
-    name: "Nomena"
+    key:  "e650f6e74a6e284d8fa3417325e0bf77783a51875075e0fd8aae1b44bb733097",
+    name: "Nomena",
   },
   "1436837822656020663": {
-    key: "6ef16fb0676f8021094bbc86ce138288da6461c642be0cd7521dca22fcff07ae",
-    name: "Tyche"
+    key:  "6ef16fb0676f8021094bbc86ce138288da6461c642be0cd7521dca22fcff07ae",
+    name: "Tyche",
   },
   "1438325099345346723": {
-    key: "e43595045feb40714c898d4cc4be600581ce155e39dc36155e6f3e4602b55b25",
-    name: "Saisoku"
-  }
+    key:  "e43595045feb40714c898d4cc4be600581ce155e39dc36155e6f3e4602b55b25",
+    name: "Saisoku",
+  },
+  "1459002793179349023": {
+    key:  "90ab6b4be1f73708ef46b4f72141dde0254f68124f9642fabedbbfc4618d07cc",
+    name: "Tesseract",
+  },
+  "1459007370746134691": {
+    key:  "8082f0f536a0bea6cdd28fab2f6e8451f927858901025b5b5d77fa39b3aaf6c3",
+    name: "Ephemere",
+  },
+  "884082547183747153": {
+    key:  "5a73fdbd5fc5b56dbc8b19f61d94413189c73b6ed6bd4b92311a44ed01f67bb0",
+    name: "Valerium",
+  },
 };

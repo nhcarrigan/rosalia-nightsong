@@ -154,11 +154,13 @@ export const instantiateServer = async(): Promise<void> => {
             `[ERROR]: ${context} - ${application}`,
             `${message}\n\n${stack}`,
           );
-          await pipeError(
-            application,
-            `${context} - ${message}\n${stack}`,
-            "error",
-          );
+          await pipeError({
+            appName: application,
+            level:   "error",
+            message: message,
+            scope:   context,
+            stack:   stack,
+          });
           await response.status(200).send({ success: true });
         } catch (error) {
           await errorHandler(error, "Error Webhook");
